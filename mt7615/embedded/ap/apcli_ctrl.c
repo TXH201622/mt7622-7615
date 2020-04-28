@@ -771,8 +771,7 @@ static VOID ApCliCtrlJoinReqTimeoutAction(
 		/* Driver Trigger New Scan Mode for Sigma DUT usage */
 		if ((pAd->ApCfg.ApCliAutoConnectType[apcli_ifIndex] == TRIGGER_SCAN_BY_DRIVER
 #ifdef FOLLOW_HIDDEN_SSID_FEATURE
-			|| (pAd->ApCfg.ApCliAutoConnectType[apcli_ifIndex] == TRIGGER_SCAN_BY_USER
-			&& pAd->ApCfg.ApCliTab[ifIndex].AutoConnectFlag == TRUE)
+			|| pAd->ApCfg.ApCliAutoConnectType[apcli_ifIndex] == TRIGGER_SCAN_BY_USER
 #endif
 			) && pAd->ScanCtrl.PartialScan.bScanning == FALSE
 		   ) {

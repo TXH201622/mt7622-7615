@@ -61,9 +61,6 @@ VOID RTMPIoctlGetMacTable(
 	IN PRTMP_ADAPTER pAd,
 	IN RTMP_IOCTL_INPUT_STRUCT * wrq);
 
-VOID RTMPIoctlGetDriverInfo(
-	IN  PRTMP_ADAPTER pAd,
-	IN  RTMP_IOCTL_INPUT_STRUCT * wrq);
 
 VOID RTMPAPIoctlE2PROM(
 	IN  PRTMP_ADAPTER   pAdapter,
@@ -275,23 +272,6 @@ INT Set_Bh_Bss_Proc(
 INT Set_Fh_Bss_Proc(
 	PRTMP_ADAPTER pAd,
 	char *arg);
-INT Set_Map_Proc(
-	PRTMP_ADAPTER pAd,
-	char *arg);
-INT Set_Map_Turnkey_Proc(
-	PRTMP_ADAPTER pAd,
-	char *arg);
-INT Set_Map_Channel_Proc(
-	PRTMP_ADAPTER pAd,
-	char *arg);
-INT Set_Map_Channel_En_Proc(
-	RTMP_ADAPTER *pAd,
-	RTMP_STRING *arg);
-
-void update_ch_by_wdev(RTMP_ADAPTER *pAd, struct wifi_dev *wdev);
-
-
-
 #endif /* CONFIG_MAP_SUPPORT */
 
 #ifdef APCLI_SUPPORT

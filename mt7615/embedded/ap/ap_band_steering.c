@@ -955,6 +955,7 @@ BOOLEAN BndStrg_CheckConnectionReq(
 	}
 
 /* WPS_BandSteering Support */
+#ifdef WSC_AP_SUPPORT
 	{
 		PWSC_CTRL pWscControl;
 
@@ -985,7 +986,7 @@ BOOLEAN BndStrg_CheckConnectionReq(
 			}
 		}
 	}
-
+#endif
 	if (table->BndStrgMode == POST_CONNECTION_STEERING) {
 		return TRUE;
 	}
@@ -1222,7 +1223,9 @@ void BndStrg_UpdateEntry(PRTMP_ADAPTER pAd,
 			cli_assoc->bVHTCapable = TRUE;
 		cli_assoc->Nss = Nss;
 /* WPS_BandSteering Support */
+#ifdef WSC_AP_SUPPORT
 		cli_assoc->bWpsAssoc = ie_list->bWscCapable;
+#endif
 #ifdef CONFIG_DOT11V_WNM
 		cli_assoc->BTMSupport = pEntry->BssTransitionManmtSupport;
 #endif

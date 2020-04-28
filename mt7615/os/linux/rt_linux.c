@@ -52,10 +52,6 @@
 #include "../../../../../../net/nat/hw_nat/frame_engine.h"
 #endif /*CONFIG_FAST_NAT_SUPPORT*/
 
-#ifdef VLAN_SUPPORT
-#include <linux/if_vlan.h>
-#endif /*VLAN_SUPPORT*/
-
 /* TODO */
 #undef RT_CONFIG_IF_OPMODE_ON_AP
 #undef RT_CONFIG_IF_OPMODE_ON_STA
@@ -217,13 +213,9 @@ static inline VOID __RTMP_OS_Init_Timer(
 	IN PVOID data)
 {
 	if (!timer_pending(pTimer)) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-		timer_setup(pTimer, function, 0);
-#else
 		init_timer(pTimer);
 		pTimer->data = (unsigned long)data;
 		pTimer->function = function;
-#endif
 	}
 }
 
@@ -427,14 +419,11 @@ void RTMP_QueryPacketInfo(
 
 
 
-PNDIS_PACKET ClonePacket(BOOLEAN moniflag, PNET_DEV ndev, PNDIS_PACKET pkt, UCHAR *buf, ULONG sz)
+PNDIS_PACKET ClonePacket(PNET_DEV ndev, PNDIS_PACKET pkt, UCHAR *buf, ULONG sz)
 {
 	struct sk_buff *pRxPkt, *pClonedPkt;
 
 	ASSERT(pkt);
-#ifdef SNIFFER_SUPPORT
-	if (moniflag == FALSE)								
-#endif
 	ASSERT(sz < 1530);
 	pRxPkt = RTPKT_TO_OSPKT(pkt);
 	/* clone the packet */
@@ -833,11 +822,7 @@ int RtmpOSFileWrite(RTMP_OS_FD osfd, char *pDataPtr, int writeLen)
 #if (KERNEL_VERSION(4, 1, 0) > LINUX_VERSION_CODE)
 	return osfd->f_op->write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
 #else
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-	return vfs_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
-#else
 	return __vfs_write(osfd, pDataPtr, (size_t) writeLen, &osfd->f_pos);
-#endif
 #endif
 }
 
@@ -1893,13 +1878,6 @@ NDIS_STATUS AdapterBlockAllocateMemory(VOID *handle, VOID **ppAd, UINT32 SizeOfp
 
 
 /* ========================================================================== */
-#ifdef VLAN_SUPPORT
-VOID* RtmpOsVLANInsertTag(PNDIS_PACKET pPacket, UINT16 tci)
-{
-	return (VOID*)vlan_insert_tag(RTPKT_TO_OSPKT(pPacket), cpu2be16(ETH_TYPE_VLAN), tci);
-}
-#endif /*VLAN_SUPPORT*/
-
 
 UINT RtmpOsWirelessExtVerGet(VOID)
 {
@@ -1951,12 +1929,7 @@ VOID RtmpDrvAllMacPrint(
 				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file write method\n"));
 			}
 #else
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-			vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
-
-#else
 			__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
-#endif
 #endif
 				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s", msg));
 				macAddr += AddrStep;
@@ -2016,12 +1989,7 @@ VOID RtmpDrvAllE2PPrint(
 					MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file write method\n"));
 				}
 #else
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-				vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
-
-#else
 				__vfs_write(file_w, msg, strlen(msg), &file_w->f_pos);
-#endif
 #endif
 				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s", msg));
 				eepAddr += AddrStep;
@@ -2069,12 +2037,7 @@ VOID RtmpDrvAllRFPrint(
 				MTWF_LOG(DBG_CAT_INIT, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("no file write method\n"));
 			}
 #else
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
-			vfs_write(file_w, pBuf, BufLen, &file_w->f_pos);
-
-#else
 			__vfs_write(file_w, pBuf, BufLen, &file_w->f_pos);
-#endif
 #endif
 		}
 
@@ -2111,15 +2074,6 @@ VOID RtmpOsCmdUp(RTMP_OS_TASK *pCmdQTask)
 #endif /* KTHREAD_SUPPORT */
 }
 
-BOOLEAN RtmpOsIsCmdThreadRunning(RTMP_OS_TASK *pCmdQTask)
-{
-	OS_TASK *pTask = RTMP_OS_TASK_GET(pCmdQTask);
-#ifdef KTHREAD_SUPPORT
-	return pTask->kthread_running;
-#else
-	return FALSE;
-#endif /* KTHREAD_SUPPORT */
-}
 
 /*
  * ========================================================================

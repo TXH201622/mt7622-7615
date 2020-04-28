@@ -39,7 +39,6 @@
 #include "arris_wps_gpio_handler.h"
 #endif
 #include    "wsc_tlv.h"
-#include "hdev/hdev.h"
 /*#ifdef LINUX */
 /*#include <net/iw_handler.h> */
 /*#endif*/
@@ -969,12 +968,12 @@ VOID WscEAPAction(
 
 					/*bss in current band has triggered wps pbc, so check Peer DPID*/
 					if (bss_index < pAdapter->ApCfg.BssidNum) {
-						MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+						MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
 							("%s(): pAd->ApCfg.MBSSID[%d] WPS on, PBC Overlap detected\n",
 							__func__, bss_index));
 						pAdapter->CommonCfg.WscPBCOverlap = TRUE;
 					} else {
-						MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+						MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
 							("%s(): pAd->ApCfg.MBSSID[%d] WPS off, PBC Overlap is invalid\n",
 							__func__, bss_index));
 						pAdapter->CommonCfg.WscPBCOverlap = FALSE;
@@ -1487,15 +1486,14 @@ void wsc_send_config_event_to_wapp(IN  PRTMP_ADAPTER pAdapter,
 	APCLI_STRUCT *pApCliTab;
 	UCHAR CurApIdx = (pWscControl->EntryIfIdx & 0x0F);
 	PWSC_CREDENTIAL pCredential;
-	MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
-					("%s:SEND Event to WAPP for WSC profile currAPIndex %d\n", __func__, CurApIdx));
+	wsc_apcli_config_msg *wsc_config = NULL;
 
 	if (CurApIdx >= MAX_APCLI_NUM)
 		return;
 
 	pApCliTab = &pAdapter->ApCfg.ApCliTab[CurApIdx];
-	TotalLen = sizeof(struct wapp_event);
-
+	TotalLen = sizeof(CHAR) * 2 + sizeof(wsc_apcli_config_msg) +
+		sizeof(wsc_apcli_config) * pWscProfile->ProfileCnt + sizeof(int);
 	os_alloc_mem(NULL, (PUCHAR *)&msg, TotalLen);
 	if (msg == NULL) {
 		MTWF_LOG(DBG_CAT_ALL, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
@@ -1505,12 +1503,26 @@ void wsc_send_config_event_to_wapp(IN  PRTMP_ADAPTER pAdapter,
 	NdisZeroMemory(msg, TotalLen);
 	event = (struct wapp_event *)msg;
 	event->event_id = WAPP_MAP_WSC_CONFIG;
+	wsc_config = (wsc_apcli_config_msg *)&event->data;
 	wdev = &pApCliTab->wdev;
 	event->ifindex = RtmpOsGetNetIfIndex(wdev->if_dev);
+	wsc_config->profile_count = pWscProfile->ProfileCnt;
 	for (i = 0; i < pWscProfile->ProfileCnt; i++)
 	{
 		pCredential = &pWscProfile->Profile[i];
-		pCredential->DevPeerRole = pEntry->DevPeerRole;
+
+		NdisZeroMemory(wsc_config->apcli_config[i].ssid,
+			sizeof(wsc_config->apcli_config[i].ssid));
+		NdisCopyMemory(wsc_config->apcli_config[i].ssid, pCredential->SSID.Ssid, pCredential->SSID.SsidLength);
+		NdisCopyMemory(wsc_config->apcli_config[i].Key, pCredential->Key, pCredential->KeyLength);
+		NdisCopyMemory(wsc_config->apcli_config[i].bssid, pCredential->MacAddr, MAC_ADDR_LEN);
+		wsc_config->apcli_config[i].SsidLen = pCredential->SSID.SsidLength;
+		wsc_config->apcli_config[i].AuthType = pCredential->AuthType;
+		wsc_config->apcli_config[i].EncrType = pCredential->EncrType;
+		wsc_config->apcli_config[i].KeyLength = pCredential->KeyLength;
+		wsc_config->apcli_config[i].KeyIndex = pCredential->KeyIndex;
+		wsc_config->apcli_config[i].peer_map_role = pEntry->DevPeerRole;
+		wsc_config->apcli_config[i].own_map_role = wdev->MAPCfg.DevOwnRole;
 	}
 
 	RtmpOSWrielessEventSend(wdev->if_dev, RT_WLAN_EVENT_CUSTOM,
@@ -2528,12 +2540,6 @@ VOID WscEapRegistrarAction(
 							WscSendUPnPMessage(pAdapter, (pWscControl->EntryIfIdx & 0x0F), WSC_OPCODE_UPNP_CTRL, WSC_UPNP_DATA_SUB_WSC_DONE, &pAdapter->ApCfg.MBSSID[pWscControl->EntryIfIdx & 0x0F].wdev.bssid[0], MAC_ADDR_LEN, 0, 0, &pAdapter->ApCfg.MBSSID[pWscControl->EntryIfIdx & 0x0F].wdev.bssid[0], AP_MODE);
 						}
 #endif /* VENDOR_FEATURE6_SUPPORT */
-#if defined(CONFIG_MAP_SUPPORT)
-					if (IS_MAP_TURNKEY_ENABLE(pAdapter))
-							wapp_send_wsc_eapol_complete_notif (
-								pAdapter,
-								pWscControl->wdev);
-#endif
 					RTMPSendWirelessEvent(pAdapter, IW_WSC_SEND_M8, NULL, (pWscControl->EntryIfIdx & 0x0F), 0);
 #ifdef CONFIG_AP_SUPPORT
 #ifdef WSC_V2_SUPPORT
@@ -3417,10 +3423,8 @@ VOID Wsc2MinsTimeOutAction(
 
 		if (pWscControl->Wsc2MinsTimerRunning) {
 			pWscControl->bWscTrigger = FALSE;
-			if (pWscControl->EapolTimerRunning) {
-				pWscControl->EapolTimerRunning = FALSE;
-				RTMPCancelTimer(&pWscControl->EapolTimer, &Cancelled);
-			}
+			pWscControl->EapolTimerRunning = FALSE;
+			RTMPCancelTimer(&pWscControl->EapolTimer, &Cancelled);
 #ifdef CONFIG_AP_SUPPORT
 
 			if (CurOpMode == AP_MODE) {
@@ -5856,14 +5860,13 @@ VOID WscStop(
 		pWscControl->WscUpdatePortCfgTimerRunning = FALSE;
 		RTMPCancelTimer(&pWscControl->WscUpdatePortCfgTimer, &Cancelled);
 	}
-	if (pWscControl->EapolTimerRunning) {
-		pWscControl->EapolTimerRunning = FALSE;
-		RTMPCancelTimer(&pWscControl->EapolTimer, &Cancelled);
-	}
+
+	RTMPCancelTimer(&pWscControl->EapolTimer, &Cancelled);
+	pWscControl->EapolTimerRunning = FALSE;
 #ifdef CONFIG_AP_SUPPORT
 
 	if ((pWscControl->EntryIfIdx & 0x0F) < pAd->ApCfg.BssidNum) {
-		pEntry = MacTableLookup2(pAd, pWscControl->EntryAddr, (struct wifi_dev *)pWscControl->wdev);
+		pEntry = MacTableLookup(pAd, pWscControl->EntryAddr);
 
 		if (CurOpMode == AP_MODE) {
 			if (pEntry && !bFromApCli)
@@ -7132,9 +7135,9 @@ BOOLEAN	WscPBCExec(
 				  apcli_idx,
 				  pAd->ApCfg.ApCliTab[apcli_idx].Enable));
 		{
+			RTEnqueueInternalCmd(pAd, CMDTHREAD_APCLI_IF_DOWN, (VOID *)&apcli_idx, sizeof(UCHAR));
 			/* at this point is disable, need to turn on it! */
 			pAd->ApCfg.ApCliTab[apcli_idx].Enable = TRUE;
-			RTEnqueueInternalCmd(pAd, CMDTHREAD_APCLI_IF_DOWN, (VOID *)&apcli_idx, sizeof(UCHAR));
 		}
 	}
 
@@ -7421,12 +7424,12 @@ BOOLEAN WscBssWpsIESearchForPBC(
 #ifdef CON_WPS
 #ifdef CONFIG_MAP_SUPPORT
 		if (Reqwdev && IS_MAP_TURNKEY_ENABLE(pAd)
-			&& (MAPRcGetBandIdxByChannelCheck(pAd->hdev_ctrl, pInBss->Channel) != HcGetBandByWdev(Reqwdev))) {
+			&& (HcGetBandByChannel(pAd, pInBss->Channel) != HcGetBandByWdev(Reqwdev))) {
 			if (bFound == TRUE)
 				MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_ERROR,
 				("FIND AP TmpInfo.Band =%d ssid=%s but skip(band=%d wdev band=%d)\n",
 				TmpInfo.Band, TmpInfo.Ssid,
-				MAPRcGetBandIdxByChannelCheck(pAd->hdev_ctrl, pInBss->Channel),
+				HcGetBandByChannel(pAd, pInBss->Channel),
 				HcGetBandByWdev(Reqwdev)));
 			bFound = FALSE;
 		}
@@ -7436,12 +7439,12 @@ BOOLEAN WscBssWpsIESearchForPBC(
 				&& (pAd->ApCfg.ApCliTab[apcli_idx ^ 1].wdev.WscControl.conWscStatus & CON_WPS_STATUS_APCLI_RUNNING)
 				&& (pAd->ApCfg.ApCliTab[apcli_idx].ConWpsApCliModeScanDoneStatus != CON_WPS_APCLI_SCANDONE_STATUS_ONGOING
 					&& pAd->ApCfg.ApCliTab[apcli_idx ^ 1].ConWpsApCliModeScanDoneStatus != CON_WPS_APCLI_SCANDONE_STATUS_ONGOING)) {
-				if (Reqwdev && MAPRcGetBandIdxByChannelCheck(pAd->hdev_ctrl, pInBss->Channel) != HcGetBandByWdev(Reqwdev)) {
+				if (Reqwdev && HcGetBandByChannel(pAd, pInBss->Channel) != HcGetBandByWdev(Reqwdev)) {
 					if (bFound == TRUE)
 						MTWF_LOG(DBG_CAT_SEC, CATSEC_WPS, DBG_LVL_TRACE,
 						("FIND AP TmpInfo.Band =%d ssid=%s but skip(band=%d wdev band=%d)\n",
 						TmpInfo.Band, TmpInfo.Ssid,
-						MAPRcGetBandIdxByChannelCheck(pAd->hdev_ctrl, pInBss->Channel),
+						HcGetBandByChannel(pAd, pInBss->Channel),
 						HcGetBandByWdev(Reqwdev)));
 					bFound = FALSE;
 				}
@@ -7775,7 +7778,7 @@ VOID WscPBCBssTableSort(
 			continue;
 
 #ifndef APCLI_SUPPORT
-		if (wdevBand != MAPRcGetBandIdxByChannelCheck(pAd->hdev_ctrl, pInBss->Channel))
+		if (wdevBand != HcGetBandByChannel(pAd, pInBss->Channel))
 			continue;
 #endif
 
@@ -8337,7 +8340,7 @@ VOID WpsSmProcess(
 	pHeader = (PHEADER_802_11)Elem->Msg;
 
 #ifdef A4_CONN
-	if (pHeader->FC.FrDs == 1 && pHeader->FC.ToDs == 1 && Elem->MsgType != WSC_EAPOL_UPNP_MSG)
+	if (pHeader->FC.FrDs == 1 && pHeader->FC.ToDs == 1)
 		HeaderLen = LENGTH_802_11_WITH_ADDR4;
 #endif
 
@@ -8754,22 +8757,21 @@ VOID WscPBCSessionOverlapCheck(
 					break;
 				}
 			}
-#ifdef DBDC_MODE
+
 			/*bss in current band has triggered wps pbc, so check Peer DPID*/
 			if (bss_index < pAd->ApCfg.BssidNum) {
-				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
 					("%s(): pAd->ApCfg.MBSSID[%d] WPS on, PBC Overlap detected\n",
 					__func__, bss_index));
 				pAd->CommonCfg.WscPBCOverlap = TRUE;
 			} else {
-				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_OFF,
+				MTWF_LOG(DBG_CAT_AP, DBG_SUBCAT_ALL, DBG_LVL_TRACE,
 					("%s(): pAd->ApCfg.MBSSID[%d] WPS off, PBC Overlap is invalid\n",
 					__func__, bss_index));
 				pAd->CommonCfg.WscPBCOverlap = FALSE;
 			}
 #else
 			pAd->CommonCfg.WscPBCOverlap = TRUE;
-#endif
 #endif /* CONFIG_AP_SUPPORT */
 		}
 	}

@@ -7,8 +7,6 @@
 #define ASSOC_REQ_LEN       154
 #define BLOCK_LIST_NUM      128
 #define VENDOR_SPECIFIC_LEN 128
-#define MAX_BH_PROFILE_CNT    4
-
 
 /* For rssi steering*/
 #define RCPI_TOLLENACE       8 /* 2dB */
@@ -17,9 +15,7 @@
 		(pAd->bMAPEnable == TRUE)
 
 #define IS_MAP_TURNKEY_ENABLE(pAd) \
-		((pAd->bMAPTurnKeyEnable == TRUE) && (pAd->bMAPEnable == TRUE))
-
-#define VEND_IE_TYPE 221
+		(pAd->bMAPTurnKeyEnable == TRUE)
 
 typedef enum {
 	BELOW_THRESHOLD = 0,
@@ -37,36 +33,7 @@ struct GNU_PACKED map_policy_setting {
 	unsigned char cu_thr;
 	unsigned char rcpi_thr;
 };
-#define MAX_PROFILE_CNT 4
 
-struct scan_SSID {
-	char ssid[32 + 1];
-	unsigned char SsidLen;
-};
-struct vendor_map_element {
-	u8 eid;
-	u8 length;
-	char oui[3]; /* 0x50 6F 9A */
-	char mtk_ie_element[4];
-	char type;
-	char subtype;
-	char root_distance;
-	char controller_connectivity;
-	short uplink_rate;
-	char uplink_bssid[ETH_ALEN];
-	char _5g_bssid[ETH_ALEN];
-	char _2g_bssid[ETH_ALEN];
-};
-
-
-struct GNU_PACKED scan_BH_ssids
-{
-	unsigned long scan_cookie;
-	unsigned char scan_channel_count;
-	unsigned char scan_channel_list[32];
-	unsigned char profile_cnt;
-	struct scan_SSID scan_SSID_val[MAX_PROFILE_CNT];
-};
 typedef struct _MAP_CONFIG {
 	BOOLEAN bMAPEnable;
 	/*Support Unassociated STA link metric report on current operating Bss*/
@@ -78,8 +45,7 @@ typedef struct _MAP_CONFIG {
 	UCHAR DevOwnRole;
 	UCHAR vendor_ie_buf[VENDOR_SPECIFIC_LEN];
 	UCHAR vendor_ie_len;
-	struct scan_BH_ssids scan_bh_ssids;
-	BOOLEAN FireProbe_on_DFS;
+	struct scan_SSID scan_BH_ssids[4];
 } MAP_CONFIG, *PMAP_CONFIG;
 
 /* spec v171027 */
@@ -172,13 +138,6 @@ INT ReadMapParameterFromFile(
     RTMP_STRING *tmpbuf,
     RTMP_STRING *pBuffer);
 
-void FireExtraProbeReq(
-	PRTMP_ADAPTER pAd,
-	UCHAR OpMode,
-	UCHAR ScanType,
-	struct wifi_dev *wdev,
-	UCHAR *desSsid,
-	UCHAR desSsidLen);
 
 #ifdef A4_CONN
 BOOLEAN map_a4_peer_enable(
@@ -205,7 +164,5 @@ BOOLEAN map_a4_deinit(
 	IN BOOLEAN is_ap
 );
 #endif /*A4_CONN*/
-BOOLEAN MapNotRequestedChannel(struct wifi_dev *wdev, unsigned char channel);
-int map_make_vend_ie(IN PRTMP_ADAPTER pAd, IN UCHAR ApIdx);
 #endif
 

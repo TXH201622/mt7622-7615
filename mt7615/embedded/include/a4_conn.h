@@ -78,7 +78,6 @@ BOOLEAN a4_proxy_lookup(
 	IN UCHAR if_index,
 	IN PUCHAR mac_addr,
 	IN BOOLEAN update_alive_time,
-	IN BOOLEAN is_rx,
 	OUT UCHAR *wcid
 );
 
@@ -134,9 +133,6 @@ INT Set_APProxy_Status_Show_Proc(
 	IN  PRTMP_ADAPTER adapter,
 	IN  RTMP_STRING * arg
 );
-INT Set_APProxy_Refresh_Proc(
-	IN	PRTMP_ADAPTER adapter,
-	IN	RTMP_STRING * arg);
 
 #endif /* A4_CONN */
 #endif /* __A4_CONN_H__*/

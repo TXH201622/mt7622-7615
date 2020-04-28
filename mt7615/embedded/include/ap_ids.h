@@ -41,7 +41,7 @@ VOID RTMPConflictSsidDetection(
 	IN CHAR				Rssi0,
 	IN CHAR				Rssi1,
 	IN CHAR				Rssi2
-#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+#ifdef CUSTOMER_DCC_FEATURE
 	,
 	IN CHAR 			Rssi3
 #endif

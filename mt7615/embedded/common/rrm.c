@@ -762,7 +762,7 @@ VOID RRM_BeaconReportHandler(
 	IN PRRM_BEACON_REP_INFO pBcnRepInfo,
 	IN LONG Length
 #endif /* CONFIG_11KV_API_SUPPORT */
-#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+#ifdef CUSTOMER_DCC_FEATURE
 	,
 	IN UCHAR	*Snr,
 	IN CHAR 	*rssi
@@ -894,7 +894,7 @@ VOID RRM_BeaconReportHandler(
 	if (bFrameBody) {
 		ie_list->FromBcnReport = TRUE;
 		Idx = BssTableSetEntry(pAd, &pAd->ScanTab, ie_list, Rssi, LenVIE, pVIE
-#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+#ifdef CUSTOMER_DCC_FEATURE
 							, Snr, rssi
 #endif /* CONFIG_AP_SUPPORT */
 					);
@@ -943,7 +943,7 @@ VOID RRM_PeerMeasureRepAction(
 	PNET_DEV NetDev = NULL;
 #endif /* CONFIG_11KV_API_SUPPORT */
 #endif
-#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+#ifdef CUSTOMER_DCC_FEATURE
 		UCHAR Snr[4] = {0};
 		CHAR  rssi[4] = {0};
 		Snr[0] = ConvertToSnr(pAd, Elem->rssi_info.raw_Snr[0]);
@@ -1043,7 +1043,7 @@ VOID RRM_PeerMeasureRepAction(
 									pMeasureRep,
 									BcnRepLen,
 									pDialogEntry
-#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+#ifdef CUSTOMER_DCC_FEATURE
 									, Snr, rssi
 #endif
 
@@ -1074,12 +1074,12 @@ VOID RRM_PeerMeasureRepAction(
 								pEntry->wdev,
 								pMeasureRep,
 								BcnRepLen
-#if defined(CUSTOMER_DCC_FEATURE) || defined(CONFIG_MAP_SUPPORT)
+#ifdef CUSTOMER_DCC_FEATURE
 								, Snr, rssi
 #endif
 							);
 #if defined(WAPP_SUPPORT)
-				wapp_send_bcn_report(pAd, pEntry, eid_ptr->Octet, eid_ptr->Len);
+				wapp_send_bcn_report(pAd, pEntry, eid_ptr->Octet + 3, BcnRepLen);
 #endif
 #endif /* CONFIG_11KV_API_SUPPORT */
 			}

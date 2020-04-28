@@ -89,9 +89,6 @@
 #include "cmm_cmd.h"
 #include "hw_ctrl.h"
 #include "iface/iface_util.h"
-#ifdef SNIFFER_SUPPORT
-#include "sniffer/sniffer.h"
-#endif /* SNIFFER_SUPPORT */
 #ifdef MEM_ALLOC_INFO_SUPPORT
 #include "meminfo_list.h"
 #endif /* MEM_ALLOC_INFO_SUPPORT */
@@ -207,12 +204,6 @@
 
 #define MAX_CUSTOM_LEN 128
 
-#ifdef DBDC_MODE
-#define MONITOR_MAX_DEV_NUM	2
-#else
-#define MONITOR_MAX_DEV_NUM	1
-#endif
-#define RX_BUFFER_SIZE_MIN	14
 /* */
 /* IEEE 802.11 Structures and definitions */
 /* */

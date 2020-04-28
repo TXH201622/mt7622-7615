@@ -1252,9 +1252,7 @@ VOID MlmeDeAuthAction(
 			MiniportMMRequest(pAd, 0, pOutBuffer, FrameLen);
 
 		MlmeFreeMemory(pOutBuffer);
-		/*Sta entry is deleted before sending EAP-Failure & Deauth frame
-		  Using OS_WAIT to rescheduling the frame TX before entry delete*/
-		OS_WAIT(1);
+
 #ifdef WIFI_DIAG
 		if (pEntry && IS_ENTRY_CLIENT(pEntry))
 			DiagConnError(pAd, pEntry->func_tb_idx, pEntry->Addr, DIAG_CONN_DEAUTH_COM, Reason);
@@ -3375,7 +3373,7 @@ VOID WPAConstructEapolKeyData(
 
 		if (pEntry->pMbss->HotSpotCtrl.HotSpotEnable
 			&& pEntry->pMbss->HotSpotCtrl.DGAFDisable) {
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("[HOTSPOT]:%s - Unique GTK for each STA\n", __func__));
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("[HOTSPOT]:%s - Unique GTK for each STA\n", __func__));
 			NdisMoveMemory(&Key_Data[data_offset], pSecPairwise->HsUniGTK, gtk_len);
 		} else
 #endif /* defined(CONFIG_HOTSPOT) && defined(CONFIG_AP_SUPPORT) */
@@ -3907,9 +3905,9 @@ BOOLEAN WpaMessageSanity(
 		RTMPSendWirelessEvent(pAd, IW_REPLAY_COUNTER_DIFF_EVENT_FLAG, pEntry->Addr, pEntry->wdev->wdev_idx, 0);
 
 		if (MsgType < EAPOL_GROUP_MSG_1)
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Replay Counter Different in pairwise msg %d of 4-way handshake!\n", MsgType));
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Replay Counter Different in pairwise msg %d of 4-way handshake!\n", MsgType));
 		else
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("Replay Counter Different in group msg %d of 2-way handshake!\n", (MsgType - EAPOL_PAIR_MSG_4)));
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("Replay Counter Different in group msg %d of 2-way handshake!\n", (MsgType - EAPOL_PAIR_MSG_4)));
 
 		hex_dump("Receive replay counter ", pMsg->KeyDesc.ReplayCounter, LEN_KEY_DESC_REPLAY);
 		hex_dump("Current replay counter ", pHandshake4Way->ReplayCounter, LEN_KEY_DESC_REPLAY);
@@ -4352,7 +4350,7 @@ VOID WPABuildPairMsg3(
 		GenRandom(pAd, pEntry->Addr, HSClientGTK);
 		/* gtk_ptr = HSClientGTK; */
 		os_move_mem(pSecConfig->HsUniGTK, HSClientGTK, LEN_MAX_GTK);
-		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s:Random unique GTK for each mobile device when dgaf disable\n", __func__));
+		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s:Random unique GTK for each mobile device when dgaf disable\n", __func__));
 		hex_dump("GTK", pSecConfig->HsUniGTK, 32);
 	}
 
@@ -4870,12 +4868,6 @@ VOID PeerPairMsg2Action(
 	/* check Entry in valid State*/
 	if (pHandshake4Way->WpaState < AS_PTKSTART)
 		return;
-	/* Prevent the Replayed Msg2 Attack */
-	if (pHandshake4Way->WpaState == AS_PTKINITDONE) {
-		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-			("%s: reject the Replayed Msg2\n", __func__));
-		return;
-	}
 
 	/* pointer to 802.11 header*/
 	pHeader = (PHEADER_802_11)Elem->Msg;
@@ -4999,7 +4991,7 @@ VOID PeerPairMsg2Action(
 #endif /* DOT11W_PMF_SUPPORT */
 #ifdef CONFIG_HOTSPOT_R2
 		if (CLIENT_STATUS_TEST_FLAG(pEntry, fCLIENT_STATUS_OSEN_CAPABLE)) {
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("got msg2 derivePTK\n"));
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("got msg2 derivePTK\n"));
 			WpaDerivePTK_KDF_256(pSecConfig->PMK,
 						  pHandshake4Way->ANonce,		/* ANONCE*/
 						  pHandshake4Way->AAddr,
@@ -5087,7 +5079,7 @@ VOID PeerPairMsg3Action(
 			pEntry->CCMP_BC_PN[kid] += ((UINT64)pReceiveEapol->KeyDesc.KeyRsc[idx] << (idx*8));
 		pEntry->Init_CCMP_BC_PN_Passed[kid] = FALSE;
 		pEntry->AllowUpdateRSC = FALSE;
-		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(%d): update CCMP_BC_PN to %llu\n",
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(%d): update CCMP_BC_PN to %llu\n",
 			__FUNCTION__, pEntry->wcid, pEntry->CCMP_BC_PN[kid]));
 #ifdef MAC_REPEATER_SUPPORT
 		/* sync PN of ApCli entry as the time rept rekey */
@@ -5135,13 +5127,6 @@ VOID PeerPairMsg4Action(
 
 	if (pHandshake4Way->WpaState < AS_PTKINIT_NEGOTIATING)
 		return;
-
-	/* Prevent the Replayed Msg4 Attack */
-	if (pHandshake4Way->WpaState == AS_PTKINITDONE) {
-		MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR,
-		("%s: reject the Replayed Msg4\n", __func__));
-		return;
-	}
 
 	/* pointer to 802.11 header*/
 	pHeader = (PHEADER_802_11)Elem->Msg;
@@ -5359,7 +5344,7 @@ VOID PeerPairMsg4Action(
 								req_data->type);
 			pEntry->IsWNMReqValid = FALSE;
 			os_free_mem(req_data);
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("!!!!msg 4 send wnm req\n"));
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("!!!!msg 4 send wnm req\n"));
 		}
 
 #endif
@@ -5373,7 +5358,7 @@ VOID PeerPairMsg4Action(
 						 req_data->btm_req_len);
 			pEntry->IsBTMReqValid = FALSE;
 			os_free_mem(req_data);
-			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("!!!!msg 4 send btm req\n"));
+			MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("!!!!msg 4 send btm req\n"));
 		}
 
 #endif
@@ -5417,20 +5402,15 @@ VOID PeerGroupMsg1Action(
 	PEAPOL_PACKET pReceiveEapol;
 	UINT EapolLen;
 	PHANDSHAKE_PROFILE pHandshake4Way  = NULL;
-	unsigned char hdr_len = LENGTH_802_11;
 	UCHAR idx = 0;
 
 	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("===> %s\n", __func__));
 	pHandshake4Way = &pSecConfig->Handshake;
 	/* pointer to 802.11 header*/
 	pHeader = (PHEADER_802_11)Elem->Msg;
-#ifdef A4_CONN
-	if (pHeader->FC.FrDs == 1 && pHeader->FC.ToDs == 1)
-		hdr_len = LENGTH_802_11_WITH_ADDR4;
-#endif
 	/* skip 802.11_header(24-byte) and LLC_header(8) */
-	pReceiveEapol = (PEAPOL_PACKET) &Elem->Msg[hdr_len + LENGTH_802_1_H];
-	EapolLen = Elem->MsgLen - hdr_len - LENGTH_802_1_H;
+	pReceiveEapol = (PEAPOL_PACKET) &Elem->Msg[LENGTH_802_11 + LENGTH_802_1_H];
+	EapolLen = Elem->MsgLen - LENGTH_802_11 - LENGTH_802_1_H;
 
 	/* Sanity Check peer group message 1 - Replay Counter, MIC, RSNIE*/
 	if (WpaMessageSanity(pAd, pReceiveEapol, EapolLen, EAPOL_GROUP_MSG_1, pSecConfig, pEntry) == FALSE) {
@@ -5449,7 +5429,7 @@ VOID PeerGroupMsg1Action(
 			pEntry->CCMP_BC_PN[kid] += ((UINT64)pReceiveEapol->KeyDesc.KeyRsc[idx] << (idx*8));
 		pEntry->Init_CCMP_BC_PN_Passed[kid] = FALSE;
 		pEntry->AllowUpdateRSC = FALSE;
-		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_OFF, ("%s(%d): update CCMP_BC_PN to %llu\n",
+		MTWF_LOG(DBG_CAT_CFG, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s(%d): update CCMP_BC_PN to %llu\n",
 			__FUNCTION__, pEntry->wcid, pEntry->CCMP_BC_PN[kid]));
 #ifdef MAC_REPEATER_SUPPORT
 		/* Sync PN of ApCli entry as the time rept rekey */
@@ -5480,19 +5460,14 @@ VOID PeerGroupMsg2Action(
 	PEAPOL_PACKET pReceiveEapolM2;
 	UINT EapolLen;
 	PHANDSHAKE_PROFILE pHandshake4Way  = NULL;
-	unsigned char hdr_len = LENGTH_802_11;
 	BOOLEAN Cancelled;
 
 	MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("===> %s\n", __func__));
 	/* pointer to 802.11 header*/
 	pHeader = (PHEADER_802_11)Elem->Msg;
-#ifdef A4_CONN
-		if (pHeader->FC.FrDs == 1 && pHeader->FC.ToDs == 1)
-			hdr_len = LENGTH_802_11_WITH_ADDR4;
-#endif
 	/* skip 802.11_header(24-byte) and LLC_header(8) */
-	pReceiveEapolM2 = (PEAPOL_PACKET) &Elem->Msg[hdr_len + LENGTH_802_1_H];
-	EapolLen = Elem->MsgLen - hdr_len - LENGTH_802_1_H;
+	pReceiveEapolM2 = (PEAPOL_PACKET) &Elem->Msg[LENGTH_802_11 + LENGTH_802_1_H];
+	EapolLen = Elem->MsgLen - LENGTH_802_11 - LENGTH_802_1_H;
 	pHandshake4Way = &pSecConfig->Handshake;
 
 	if (pHandshake4Way->WpaState != AS_PTKINITDONE)
@@ -5982,7 +5957,7 @@ VOID WPAHandshakeMsgRetryExec(
 			} else if (pHandshake->MsgType == EAPOL_GROUP_MSG_1) {
 				if (pHandshake->MsgRetryCounter > GROUP_MSG1_RETRY_LIMIT) {
 					pHandshake->GTKState = REKEY_FAILURE;
-					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_ERROR, ("%s::Group rekey timeout from %02X:%02X:%02X:%02X:%02X:%02X\n", __func__, PRINT_MAC(pHandshake->SAddr)));
+					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::Group rekey timeout from %02X:%02X:%02X:%02X:%02X:%02X\n", __func__, PRINT_MAC(pHandshake->SAddr)));
 				} else {
 					WPABuildGroupMsg1(pAd, &pEntry->SecConfig, pEntry);
 					MTWF_LOG(DBG_CAT_SEC, DBG_SUBCAT_ALL, DBG_LVL_TRACE, ("%s::ReTry MSG1 of 2-way Handshake, Counter = %d\n", __func__, pHandshake->MsgRetryCounter));
